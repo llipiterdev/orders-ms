@@ -24,6 +24,7 @@ describe('OrderService', () => {
     expect(order.userId).toBe('user1');
     expect(order.amount).toBe(100);
     expect(service.getOrders()).toContain(order);
+    expect(mockedAxios.post).toHaveBeenCalledWith('http://payments-ms:3001/payments', { orderId: order.id, amount: 100 });
   });
 
   it('should create order and set status to FAILED if declined', async () => {
@@ -31,6 +32,7 @@ describe('OrderService', () => {
 
     const order = await service.createOrder('user1', 100);
     expect(order.status).toBe('FAILED');
+    expect(mockedAxios.post).toHaveBeenCalledWith('http://payments-ms:3001/payments', { orderId: order.id, amount: 100 });
   });
 
   it('should create order and set status to FAILED on error', async () => {
@@ -38,6 +40,7 @@ describe('OrderService', () => {
 
     const order = await service.createOrder('user1', 100);
     expect(order.status).toBe('FAILED');
+    expect(mockedAxios.post).toHaveBeenCalledWith('http://payments-ms:3001/payments', { orderId: order.id, amount: 100 });
   });
 
   it('should get all orders', () => {
@@ -51,5 +54,11 @@ describe('OrderService', () => {
     const order = await service.createOrder('user1', 100);
     const found = service.getOrderById(order.id);
     expect(found).toEqual(order);
+  });
+
+  it('should return undefined if order not found', async () => {
+    await service.createOrder('user1', 100); // create one order
+    const found = service.getOrderById('nonexistent');
+    expect(found).toBeUndefined();
   });
 });
