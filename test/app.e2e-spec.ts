@@ -7,12 +7,17 @@ describe('Orders (e2e)', () => {
   let app: INestApplication;
 
   beforeEach(async () => {
+    process.env.ORDER_EXPIRY_MS = '600000';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
+  });
+
+  afterEach(async () => {
+    await app.close();
   });
 
   it('/orders (POST)', () => {
@@ -23,7 +28,13 @@ describe('Orders (e2e)', () => {
       .expect((res) => {
         expect(res.body).toHaveProperty('id');
         expect(res.body).toHaveProperty('status');
-        expect(['PENDING', 'PAID', 'FAILED']).toContain(res.body.status);
+        expect([
+          'PENDING',
+          'PAYMENT_IN_FLIGHT',
+          'PAID',
+          'FAILED',
+          'EXPIRED',
+        ]).toContain(res.body.status);
       });
   });
 
