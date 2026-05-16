@@ -1,17 +1,69 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { OrderService } from './order.service';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import axios from 'axios';
+import { OrderEntity } from './order.entity';
+import { OrderService } from './order.service';
 
 jest.mock('axios');
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 describe('OrderService', () => {
   let service: OrderService;
+  let store: OrderEntity[];
+
+  function buildRepoMock() {
+    return {
+      create: jest.fn((partial: Partial<OrderEntity>) => ({
+        ...partial,
+      })) as jest.Mock,
+      save: jest.fn(async (entity: OrderEntity) => {
+        const idx = store.findIndex((r) => r.id === entity.id);
+        if (idx >= 0) {
+          store[idx] = { ...store[idx], ...entity };
+          return store[idx];
+        }
+        store.push(entity);
+        return entity;
+      }),
+      find: jest.fn(
+        async (opts?: {
+          where?: Record<string, unknown>;
+          order?: { createdAt: string };
+        }) => {
+          let rows = [...store];
+          const w = opts?.where as
+            | { userId?: string; status?: string }
+            | undefined;
+          if (w?.userId) rows = rows.filter((o) => o.userId === w.userId);
+          if (w?.status) rows = rows.filter((o) => o.status === w.status);
+          if (opts?.order?.createdAt === 'ASC') {
+            rows.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+          }
+          return rows;
+        },
+      ),
+      findOne: jest.fn(async (opts: { where: { id: string } }) => {
+        const id = opts.where.id;
+        return store.find((r) => r.id === id) ?? null;
+      }),
+    };
+  }
+
+  let repository: ReturnType<typeof buildRepoMock>;
 
   beforeEach(async () => {
+    store = [];
+    repository = buildRepoMock();
     jest.clearAllMocks();
+
     const module: TestingModule = await Test.createTestingModule({
-      providers: [OrderService],
+      providers: [
+        OrderService,
+        {
+          provide: getRepositoryToken(OrderEntity),
+          useValue: repository,
+        },
+      ],
     }).compile();
 
     service = module.get<OrderService>(OrderService);
@@ -27,8 +79,9 @@ describe('OrderService', () => {
     expect(order.userId).toBe('user1');
     expect(order.amount).toBe(100);
     expect(order.lastPaymentId).toBe('pay-1');
-    expect(service.getOrders()).toContainEqual(
-      expect.objectContaining({ id: order.id, status: 'PAID' }),
+    const orders = await service.getOrders();
+    expect(orders.some((o) => o.id === order.id && o.status === 'PAID')).toBe(
+      true,
     );
     expect(mockedAxios.post).toHaveBeenCalledWith(
       'http://payments-ms:3001/payments',
@@ -66,28 +119,31 @@ describe('OrderService', () => {
     mockedAxios.post.mockResolvedValue({ data: { status: 'DECLINED' } });
     await service.createOrder('user1', 100);
     await service.createOrder('user2', 200);
-    const orders = service.getOrders();
+    const orders = await service.getOrders();
     expect(orders.length).toBe(2);
   });
 
   it('should get order by id', async () => {
     mockedAxios.post.mockResolvedValue({ data: { status: 'APPROVED' } });
     const order = await service.createOrder('user1', 100);
-    const found = service.getOrderById(order.id);
-    expect(found).toEqual(order);
+    const found = await service.getOrderById(order.id);
+    expect(found?.id).toBe(order.id);
+    expect(found?.status).toBe(order.status);
   });
 
-  it('should return undefined if order not found', async () => {
+  it('should return null if order not found', async () => {
     mockedAxios.post.mockResolvedValue({ data: { status: 'DECLINED' } });
     await service.createOrder('user1', 100);
-    const found = service.getOrderById('nonexistent');
-    expect(found).toBeUndefined();
+    const found = await service.getOrderById('nonexistent');
+    expect(found).toBeNull();
   });
 
   it('should bump attempt counter on retry from FAILED', async () => {
     mockedAxios.post
       .mockResolvedValueOnce({ data: { status: 'DECLINED' } })
-      .mockResolvedValueOnce({ data: { status: 'APPROVED', paymentId: 'pay-r' } });
+      .mockResolvedValueOnce({
+        data: { status: 'APPROVED', paymentId: 'pay-r' },
+      });
     const order = await service.createOrder('user1', 50);
     expect(order.status).toBe('FAILED');
     const after = await service.retryPayment(order.id);

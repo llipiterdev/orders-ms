@@ -18,7 +18,8 @@ WORKDIR /app
 
 COPY package*.json ./
 
-RUN npm ci --only=production --omit=dev
+# Sin optional: TypeORM lista better-sqlite3 como peer opcional y npm lo instalaría (fallo sin Python en Alpine)
+RUN npm ci --omit=dev --omit=optional
 
 COPY --from=builder /app/dist ./dist
 

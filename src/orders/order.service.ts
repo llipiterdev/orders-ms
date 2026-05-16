@@ -4,14 +4,21 @@ import {
   Logger,
   ConflictException,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import axios, { AxiosError } from 'axios';
+import { Repository } from 'typeorm';
+import { OrderEntity } from './order.entity';
 import { Order, OrderStatus } from './order.interface';
 
 @Injectable()
 export class OrderService {
   private readonly logger = new Logger(OrderService.name);
-  private readonly orders: Order[] = [];
   private readonly expiryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+  constructor(
+    @InjectRepository(OrderEntity)
+    private readonly orderRepository: Repository<OrderEntity>,
+  ) {}
 
   private get paymentsBaseUrl(): string {
     return process.env.PAYMENTS_MS_URL ?? 'http://payments-ms:3001';
@@ -36,17 +43,19 @@ export class OrderService {
 
   private scheduleExpiry(orderId: string): void {
     const ms = Number(process.env.ORDER_EXPIRY_MS ?? '120000');
-    const timer = setTimeout(() => {
-      const o = this.orders.find((x) => x.id === orderId);
+    const timer = setTimeout(async () => {
+      const o = await this.orderRepository.findOne({ where: { id: orderId } });
       if (
         o &&
         (o.status === 'PENDING' || o.status === 'PAYMENT_IN_FLIGHT')
       ) {
         this.logger.warn(`Order ${orderId} expired by timer (was ${o.status})`);
         o.status = 'EXPIRED';
-        o.updatedAt = this.now();
+        o.updatedAt = new Date();
+        await this.orderRepository.save(o);
       }
     }, ms);
+    timer.unref?.();
     this.expiryTimers.set(orderId, timer);
   }
 
@@ -54,38 +63,39 @@ export class OrderService {
     userId: string,
     amount: number,
     currency = 'USD',
-  ): Promise<Order> {
+  ): Promise<OrderEntity> {
     this.assertCreatePayload(userId, amount);
 
     const id = this.genId();
-    const order: Order = {
+    const order = this.orderRepository.create({
       id,
       userId,
       amount: Number(amount),
       currency,
       status: 'PENDING',
       paymentAttemptCount: 0,
-      createdAt: this.now(),
-      updatedAt: this.now(),
-    };
-    this.orders.push(order);
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    await this.orderRepository.save(order);
     this.scheduleExpiry(id);
 
-    await this.executePaymentAttempt(order);
-    return order;
+    await this.executePaymentAttempt(id);
+    const saved = await this.orderRepository.findOne({ where: { id } });
+    return saved!;
   }
 
-  private snapshotStatus(order: Order): OrderStatus {
-    return order.status;
-  }
+  private async executePaymentAttempt(orderId: string): Promise<void> {
+    let order = await this.orderRepository.findOne({ where: { id: orderId } });
+    if (!order) return;
 
-  private async executePaymentAttempt(order: Order): Promise<void> {
-    const timeoutMs = Number(process.env.PAYMENT_HTTP_TIMEOUT_MS ?? '8000');
     order.status = 'PAYMENT_IN_FLIGHT';
     order.paymentAttemptCount += 1;
-    order.updatedAt = this.now();
+    order.updatedAt = new Date();
+    await this.orderRepository.save(order);
 
     const idempotencyKey = `${order.id}:${order.paymentAttemptCount}`;
+    const timeoutMs = Number(process.env.PAYMENT_HTTP_TIMEOUT_MS ?? '8000');
 
     try {
       this.logger.log(
@@ -107,6 +117,9 @@ export class OrderService {
         },
       );
 
+      order = (await this.orderRepository.findOne({ where: { id: orderId } }))!;
+      const snapshotStatus = order.status;
+
       if (response.status >= 500) {
         throw new Error(`PAYMENTS_HTTP_${response.status}`);
       }
@@ -118,7 +131,7 @@ export class OrderService {
       }
 
       if (data.status === 'APPROVED') {
-        if (this.snapshotStatus(order) === 'EXPIRED') {
+        if (snapshotStatus === 'EXPIRED') {
           order.lastError = 'PAYMENT_APPROVED_AFTER_EXPIRY';
           this.logger.warn(
             `Order ${order.id} remains EXPIRED while payment APPROVED`,
@@ -127,37 +140,39 @@ export class OrderService {
           order.status = 'PAID';
         }
       } else if (data.status === 'DECLINED') {
-        if (this.snapshotStatus(order) !== 'EXPIRED') {
+        if (snapshotStatus !== 'EXPIRED') {
           order.status = 'FAILED';
         }
       } else {
-        if (this.snapshotStatus(order) !== 'EXPIRED') {
+        if (snapshotStatus !== 'EXPIRED') {
           order.status = 'FAILED';
           order.lastError = 'UNKNOWN_PAYMENT_RESPONSE';
         }
       }
     } catch (err) {
       const ax = err as AxiosError;
-      if (this.snapshotStatus(order) !== 'EXPIRED') {
+      order = (await this.orderRepository.findOne({ where: { id: orderId } }))!;
+      if (order.status !== 'EXPIRED') {
         order.status = 'FAILED';
       }
       order.lastError = ax.message || String(err);
       this.logger.error(`Payment call failed for ${order.id}: ${order.lastError}`);
     }
 
-    order.updatedAt = this.now();
+    order.updatedAt = new Date();
+    await this.orderRepository.save(order);
   }
 
-  getOrders(): Order[] {
-    return [...this.orders];
+  async getOrders(): Promise<OrderEntity[]> {
+    return this.orderRepository.find({ order: { createdAt: 'ASC' } });
   }
 
-  getOrderById(id: string): Order | undefined {
-    return this.orders.find((o) => o.id === id);
+  async getOrderById(id: string): Promise<OrderEntity | null> {
+    return this.orderRepository.findOne({ where: { id } });
   }
 
-  cancelOrder(id: string): Order {
-    const order = this.orders.find((o) => o.id === id);
+  async cancelOrder(id: string): Promise<OrderEntity> {
+    const order = await this.orderRepository.findOne({ where: { id } });
     if (!order) {
       throw new BadRequestException('Order not found');
     }
@@ -165,31 +180,30 @@ export class OrderService {
       throw new ConflictException(`Cannot cancel order in status ${order.status}`);
     }
     order.status = 'CANCELLED';
-    order.updatedAt = this.now();
-    return order;
+    order.updatedAt = new Date();
+    return this.orderRepository.save(order);
   }
 
-  async retryPayment(id: string): Promise<Order> {
-    const order = this.orders.find((o) => o.id === id);
+  async retryPayment(id: string): Promise<OrderEntity> {
+    const order = await this.orderRepository.findOne({ where: { id } });
     if (!order) {
       throw new BadRequestException('Order not found');
     }
     if (order.status !== 'FAILED') {
       throw new ConflictException('Retry only allowed from FAILED');
     }
-    await this.executePaymentAttempt(order);
-    return order;
+    await this.executePaymentAttempt(id);
+    return (await this.orderRepository.findOne({ where: { id } }))!;
   }
 
-  getOrdersFiltered(userId?: string, status?: string): Order[] {
-    let rows = [...this.orders];
-    if (userId) {
-      rows = rows.filter((o) => o.userId === userId);
-    }
-    if (status) {
-      rows = rows.filter((o) => o.status === (status as OrderStatus));
-    }
-    return rows;
+  async getOrdersFiltered(userId?: string, status?: string): Promise<OrderEntity[]> {
+    return this.orderRepository.find({
+      where: {
+        ...(userId ? { userId } : {}),
+        ...(status ? { status: status as OrderStatus } : {}),
+      },
+      order: { createdAt: 'ASC' },
+    });
   }
 
   async getOrderLedger(orderId: string): Promise<{
@@ -198,7 +212,7 @@ export class OrderService {
     refunds: unknown;
     generatedAt: string;
   }> {
-    const order = this.orders.find((o) => o.id === orderId);
+    const order = await this.orderRepository.findOne({ where: { id: orderId } });
     if (!order) {
       throw new BadRequestException('Order not found');
     }
@@ -232,12 +246,14 @@ export class OrderService {
     if (amount === undefined || amount === null || Number.isNaN(Number(amount))) {
       throw new BadRequestException('amount is required');
     }
-    const order = this.orders.find((o) => o.id === orderId);
+    const order = await this.orderRepository.findOne({ where: { id: orderId } });
     if (!order) {
       throw new BadRequestException('Order not found');
     }
     order.refundRequestCount = (order.refundRequestCount ?? 0) + 1;
-    order.updatedAt = this.now();
+    order.updatedAt = new Date();
+    await this.orderRepository.save(order);
+
     const timeoutMs = Number(process.env.PAYMENT_HTTP_TIMEOUT_MS ?? '8000');
     const res = await axios.post(
       `${this.paymentsBaseUrl}/payments/refunds`,
@@ -260,25 +276,28 @@ export class OrderService {
     count: number,
     amount: number,
     currency = 'USD',
-  ): Promise<{ requested: number; received: number; orders: Order[] }> {
+  ): Promise<{ requested: number; received: number; orders: OrderEntity[] }> {
     if (!Number.isFinite(count) || count < 1 || count > 50) {
       throw new BadRequestException('count must be between 1 and 50');
     }
     this.assertCreatePayload(userId, amount);
-    const out: Order[] = [];
+    const out: OrderEntity[] = [];
     for (let i = 0; i < count; i++) {
       out.push(await this.createOrder(userId, amount, currency));
     }
     return { requested: count, received: out.length, orders: out };
   }
 
-  patchOrderMetadata(id: string, patch: Record<string, string>): Order {
-    const order = this.orders.find((o) => o.id === id);
+  async patchOrderMetadata(
+    id: string,
+    patch: Record<string, string>,
+  ): Promise<OrderEntity> {
+    const order = await this.orderRepository.findOne({ where: { id } });
     if (!order) {
       throw new BadRequestException('Order not found');
     }
     order.metadata = { ...(order.metadata ?? {}), ...patch };
-    order.updatedAt = this.now();
-    return order;
+    order.updatedAt = new Date();
+    return this.orderRepository.save(order);
   }
 }

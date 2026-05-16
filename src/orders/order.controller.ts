@@ -46,7 +46,7 @@ export class OrderController {
   }
 
   @Get()
-  findAll(@Query('userId') userId?: string, @Query('status') status?: string) {
+  async findAll(@Query('userId') userId?: string, @Query('status') status?: string) {
     if (userId || status) {
       return this.orderService.getOrdersFiltered(userId, status);
     }
@@ -59,7 +59,7 @@ export class OrderController {
   }
 
   @Post(':id/cancel')
-  cancel(@Param('id') id: string) {
+  async cancel(@Param('id') id: string) {
     this.logger.log(`Cancel request for ${id}`);
     return this.orderService.cancelOrder(id);
   }
@@ -79,7 +79,7 @@ export class OrderController {
   }
 
   @Patch(':id/metadata')
-  patchMetadata(
+  async patchMetadata(
     @Param('id') id: string,
     @Body() body: Record<string, string>,
   ) {
@@ -87,7 +87,7 @@ export class OrderController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  async findOne(@Param('id') id: string) {
     return this.orderService.getOrderById(id);
   }
 }

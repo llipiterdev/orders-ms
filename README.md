@@ -6,7 +6,7 @@ Este es el microservicio de órdenes para el sistema "Order & Payment System". G
 
 - **Framework**: NestJS con TypeScript
 - **Puerto**: 3000
-- **Almacenamiento**: En memoria (sin base de datos)
+- **Almacenamiento**: PostgreSQL vía TypeORM en runtime (`orders_ms`). Las pruebas automatizadas no usan BD.
 - **Comunicación**: REST con `payments-ms` (URL configurable por env)
 
 ## Endpoints
@@ -29,6 +29,13 @@ Este es el microservicio de órdenes para el sistema "Order & Payment System". G
 | `PAYMENTS_MS_URL` | Base URL de pagos (default `http://payments-ms:3001`) |
 | `ORDER_EXPIRY_MS` | Tiempo hasta marcar `EXPIRED` si sigue pendiente/en vuelo |
 | `PAYMENT_HTTP_TIMEOUT_MS` | Timeout HTTP hacia pagos |
+| `DB_HOST` | Host Postgres (default `localhost` fuera de Docker; en Compose aquí usa por defecto `host.docker.internal`, o el nombre del contenedor si compartes red Docker) |
+| `DB_PORT` | Puerto (default `5432`) |
+| `DB_USER` | Usuario (default `postgres`; fuera de Docker igual que en `app.module`) |
+| `DB_PASSWORD` | Contraseña (default `postgres`) |
+| `DB_NAME` | Base de datos (default `orders_ms`) |
+| `DB_SYNCHRONIZE` | Si no es `false`, TypeORM sincroniza el esquema (útil en desarrollo; evitar en prod) |
+| `DB_LOGGING` | `true` para log SQL |
 
 ## Instalación y Ejecución
 
@@ -45,11 +52,10 @@ npm run start:prod
 
 ## Testing
 
-```bash
-# Pruebas unitarias
-npm run test
+Las pruebas **no requieren Postgres**: los unitarios usan mocks de repositorios; el e2e solo comprueba `GET /health` sin levantar TypeORM.
 
-# Pruebas e2e
+```bash
+npm run test
 npm run test:e2e
 
 # Pruebas de mutación con Stryker
@@ -62,7 +68,9 @@ Al crear una orden se llama a `POST {PAYMENTS_MS_URL}/payments` con cabecera `Id
 
 ## Docker
 
-Para construir la imagen Docker:
+El `docker-compose.yml` en la raíz del monorepo **no levanta Postgres**: debe estar ya corriendo (por ejemplo tu imagen `postgres:18.3-bookworm`). Crea las bases `orders_ms` y `payments_ms` si aún no existen (puedes tomar como referencia `docker/postgres-init/01-databases.sql`).
+
+Para construir solo la imagen del microservicio:
 
 ```bash
 docker build -t orders-ms .

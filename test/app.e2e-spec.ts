@@ -1,15 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { AppModule } from './../src/app.module';
+import { HealthController } from '../src/health.controller';
 
-describe('Orders (e2e)', () => {
+/** Smoke test HTTP sin base de datos (adecuado para actividades académicas). */
+describe('Orders (e2e smoke)', () => {
   let app: INestApplication;
 
   beforeEach(async () => {
-    process.env.ORDER_EXPIRY_MS = '600000';
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      controllers: [HealthController],
     }).compile();
 
     app = moduleFixture.createNestApplication();
@@ -20,30 +20,13 @@ describe('Orders (e2e)', () => {
     await app.close();
   });
 
-  it('/orders (POST)', () => {
+  it('GET /health', () => {
     return request(app.getHttpServer())
-      .post('/orders')
-      .send({ userId: 'user1', amount: 100 })
-      .expect(201)
-      .expect((res) => {
-        expect(res.body).toHaveProperty('id');
-        expect(res.body).toHaveProperty('status');
-        expect([
-          'PENDING',
-          'PAYMENT_IN_FLIGHT',
-          'PAID',
-          'FAILED',
-          'EXPIRED',
-        ]).toContain(res.body.status);
-      });
-  });
-
-  it('/orders (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/orders')
+      .get('/health')
       .expect(200)
       .expect((res) => {
-        expect(Array.isArray(res.body)).toBe(true);
+        expect(res.body.ok).toBe(true);
+        expect(res.body.service).toBe('orders-ms');
       });
   });
 });
