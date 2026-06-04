@@ -63,7 +63,7 @@ npm run test:e2e
 npx stryker run
 ```
 
-Documentación del taller para el **Wiki de GitHub**: [`docs/wiki-taller-testing.md`](docs/wiki-taller-testing.md). Registro de defectos: [`defectos.md`](defectos.md). Integrantes: [`integrantes.txt`](integrantes.txt).
+Documentación del taller (Wiki): [Orders‐ms Wiki!](https://github.com/llipiterdev/orders-ms/wiki/Orders%E2%80%90ms-Wiki!) · fuente en repo: [`docs/wiki-taller-testing.md`](docs/wiki-taller-testing.md). Defectos: [`defectos.md`](defectos.md). Integrantes: [`integrantes.txt`](integrantes.txt).
 
 ## Comunicación con Payments MS
 

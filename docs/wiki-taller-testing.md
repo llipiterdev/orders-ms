@@ -1,19 +1,27 @@
 # Wiki — Taller de Pruebas Unitarias (orders-ms)
 
+**Wiki publicada:** [Orders‐ms Wiki!](https://github.com/llipiterdev/orders-ms/wiki/Orders%E2%80%90ms-Wiki!)
+
+**Repositorio de código:** [llipiterdev/orders-ms](https://github.com/llipiterdev/orders-ms) · rama `main`
+
+**Guía operativa:** [README.md](https://github.com/llipiterdev/orders-ms/blob/main/README.md) · **Defectos:** [defectos.md](https://github.com/llipiterdev/orders-ms/blob/main/defectos.md) · **Integrantes:** [integrantes.txt](https://github.com/llipiterdev/orders-ms/blob/main/integrantes.txt)
+
+> En GitHub Wiki los enlaces deben apuntar al **repo de código** (`blob/main/...`), no rutas relativas `../src/`. Las imágenes usan `raw.githubusercontent.com` (archivos en `docs/img/` del repo).
+
 ---
 
 ## Glosario
 
 En las tablas se utilizan las siguientes abreviaturas.
 
+| Abreviatura | Nombre completo | Qué significa en la práctica |
+|-------------|-----------------|------------------------------|
+| **CE** | **Clase de equivalencia** | **Grupo de entradas** que el programa trata **de la misma forma**. Al probar un caso representativo del grupo (éxito o fallo), no es necesario repetir todas las variantes de esa clase. Ejemplo: los `userId` vacíos (`''`, solo espacios) pertenecen a la misma clase «inválido». |
+| **VL** | **Valor límite** | Dato situado en el **borde** entre dos clases, donde suelen aparecer defectos. Ejemplo: el bulk permite 1–50; los límites son **1** (mínimo válido), **50** (máximo válido), **0** y **51** (inmediatamente fuera del rango). |
+| **R1, R2…** | **Regla de negocio** | Requisito que el sistema debe cumplir (ver tabla de reglas). Cada prueba debe proteger al menos una regla. |
+| **NF** | **Not Found** (no encontrado) | La orden u otro recurso **no existe** en base de datos; el sistema debe responder con error y no inventar datos. |
 
-| Abreviatura | Nombre completo               | Qué significa en la práctica                                                                                                                                                                                                                                                        |
-| ----------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **CE**      | **Clase de equivalencia**     | **Grupo de entradas** que el programa trata **de la misma forma**. Al probar un caso representativo del grupo (éxito o fallo), no es necesario repetir todas las variantes de esa clase. Ejemplo: los `userId` vacíos (`''`, solo espacios) pertenecen a la misma clase «inválido». |
-| **VL**      | **Valor límite**              | Dato situado en el **borde** entre dos clases, donde suelen aparecer defectos. Ejemplo: el bulk permite 1–50; los límites son **1** (mínimo válido), **50** (máximo válido), **0** y **51** (inmediatamente fuera del rango).                                                       |
-| **R1, R2…** | **Regla de negocio**          | Requisito que el sistema debe cumplir (ver tabla de reglas). Cada prueba debe proteger al menos una regla.                                                                                                                                                                          |
-| **NF**      | **Not Found** (no encontrado) | La orden u otro recurso **no existe** en base de datos; el sistema debe responder con error y no inventar datos.                                                                                                                                                                    |
-
+---
 
 ## Inicio
 
@@ -23,60 +31,54 @@ Microservicio de **órdenes** del sistema Order & Payment: crear y consultar ór
 
 La lógica de negocio concentrada para pruebas unitarias está en:
 
-- `[src/orders/order.service.ts](../src/orders/order.service.ts)` — servicio bajo prueba
-- `[src/orders/order.service.spec.ts](../src/orders/order.service.spec.ts)` — suite unitaria
+- [order.service.ts](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.ts) — servicio bajo prueba (`OrderService`)
+- [order.service.spec.ts](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts) — suite unitaria (31 pruebas)
 
 ### Alcance del taller
 
+| Incluido | Excluido (esta entrega) |
+|----------|-------------------------|
+| Pruebas unitarias de `OrderService` | Pruebas E2E de controladores |
+| Mocks de TypeORM y `axios` | PostgreSQL real en unitarios |
+| TDD, AAA, CE, VL, BDD documentados | `main.ts`, módulos, controllers en cobertura |
 
-| Incluido                            | Excluido (esta entrega)                      |
-| ----------------------------------- | -------------------------------------------- |
-| Pruebas unitarias de `OrderService` | Pruebas E2E de controladores                 |
-| Mocks de TypeORM y `axios`          | PostgreSQL real en unitarios                 |
-| TDD, AAA, CE, VL, BDD documentados  | `main.ts`, módulos, controllers en cobertura |
-
+---
 
 ## TDD (Red → Green → Refactor)
 
 ### Ciclo 1 — `userId` obligatorio
 
-
-| Fase         | Descripción                                                                                                            |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| **RED**      | Escribir `[shouldRejectCreateWhenUserIdIsEmpty](../src/orders/order.service.spec.ts)` esperando `BadRequestException`. |
-| **GREEN**    | Validación en `[assertCreatePayload](../src/orders/order.service.ts)`.                                                 |
-| **REFACTOR** | Mantener un único método privado para validar creación.                                                                |
-
+| Fase | Descripción |
+|------|-------------|
+| **RED** | Escribir [shouldRejectCreateWhenUserIdIsEmpty](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L168-L176) esperando `BadRequestException`. |
+| **GREEN** | Validación en [assertCreatePayload](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.ts#L38-L45). |
+| **REFACTOR** | Mantener un único método privado para validar creación. |
 
 ### Ciclo 2 — Cancelación solo en `PENDING`
 
-
-| Fase         | Descripción                                                                                     |
-| ------------ | ----------------------------------------------------------------------------------------------- |
-| **RED**      | Escribir `[shouldRejectCancelWhenStatusIsNotPending](../src/orders/order.service.spec.ts)`.     |
-| **GREEN**    | `[cancelOrder](../src/orders/order.service.ts)` lanza `ConflictException` si no está `PENDING`. |
-| **REFACTOR** | Agrupar pruebas en `describe('cancelOrder')`.                                                   |
-
+| Fase | Descripción |
+|------|-------------|
+| **RED** | Escribir [shouldRejectCancelWhenStatusIsNotPending](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L293-L301). |
+| **GREEN** | [cancelOrder](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.ts#L177-L188) lanza `ConflictException` si no está `PENDING`. |
+| **REFACTOR** | Agrupar pruebas en `describe('cancelOrder')` en el spec. |
 
 ### Ciclo 3 — Límite bulk (50)
 
-
-| Fase         | Descripción                                                                            |
-| ------------ | -------------------------------------------------------------------------------------- |
-| **RED**      | Escribir `[shouldRejectBulkWhenCountIsFiftyOne](../src/orders/order.service.spec.ts)`. |
-| **GREEN**    | Validar rango en `[bulkCreate](../src/orders/order.service.ts)`.                       |
-| **REFACTOR** | Extraer `BULK_MIN` y `BULK_MAX` como constantes de clase.                              |
-
+| Fase | Descripción |
+|------|-------------|
+| **RED** | Escribir [shouldRejectBulkWhenCountIsFiftyOne](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L352-L357). |
+| **GREEN** | Validar rango en [bulkCreate](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.ts#L277-L298). |
+| **REFACTOR** | Constantes [BULK_MIN y BULK_MAX](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.ts#L15-L16). |
 
 ### Ciclo 4 (adicional) — Pago rechazado
 
+| Fase | Descripción |
+|------|-------------|
+| **RED** | [shouldSetStatusFailedWhenPaymentIsDeclined](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L119-L128). |
+| **GREEN** | Rama `DECLINED` en [executePaymentAttempt](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.ts#L91-L167). |
+| **REFACTOR** | Helpers `mockPaymentApproved` / `mockPaymentDeclined` en el spec. |
 
-| Fase         | Descripción                                                                          |
-| ------------ | ------------------------------------------------------------------------------------ |
-| **RED**      | `[shouldSetStatusFailedWhenPaymentIsDeclined](../src/orders/order.service.spec.ts)`. |
-| **GREEN**    | Rama `DECLINED` en `[executePaymentAttempt](../src/orders/order.service.ts)`.        |
-| **REFACTOR** | Helpers `mockPaymentApproved` / `mockPaymentDeclined` en el spec.                    |
-
+---
 
 ## Patrón AAA (Arrange – Act – Assert)
 
@@ -89,7 +91,7 @@ La lógica de negocio concentrada para pruebas unitarias está en:
 
 ### Ejemplo real (enlace al código)
 
-Prueba: `[shouldCreateOrderWhenPaymentIsApproved](../src/orders/order.service.spec.ts)`
+Prueba: [shouldCreateOrderWhenPaymentIsApproved](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L88-L117)
 
 ```typescript
 // Arrange
@@ -103,165 +105,140 @@ expect(order.status).toBe('PAID');
 expect(order.userId).toBe('user1');
 ```
 
-Configuración Nest: `Test.createTestingModule` + `getRepositoryToken(OrderEntity)` + `jest.mock('axios')`.
+Configuración Nest en el spec: `Test.createTestingModule` + `getRepositoryToken(OrderEntity)` + `jest.mock('axios')`.
 
 ---
 
 ## Clases de equivalencia y valores límite
 
-### Glosario breve
-
-
-| Sigla  | Significado                                                          |
-| ------ | -------------------------------------------------------------------- |
-| **CE** | Clase de equivalencia: entradas con el mismo comportamiento esperado |
-| **VL** | Valor límite: dato en el borde entre clases válidas e inválidas      |
-
-
 ### Justificación de bordes — bulk `count` (R11)
 
+| Valor | Tipo | Justificación |
+|-------|------|---------------|
+| **0** | VL | Inmediatamente debajo del mínimo permitido (1) |
+| **1** | VL | Mínimo válido |
+| **50** | VL | Máximo válido |
+| **51** | VL | Inmediatamente por encima del máximo |
 
-| Valor  | Tipo | Justificación                                                                   |
-| ------ | ---- | ------------------------------------------------------------------------------- |
-| **0**  | VL   | Inmediatamente debajo del mínimo permitido (1)                                  |
-| **1**  | VL   | Mínimo válido                                                                   |
-| **50** | VL   | Máximo válido                                                                   |
-| **51** | VL   | Inmediatamente por encima del máximo; error frecuente en validación `<=` vs `<` |
-
-
-Constantes en código: `BULK_MIN = 1`, `BULK_MAX = 50` en `[order.service.ts](../src/orders/order.service.ts)`.
+Constantes: [BULK_MIN = 1, BULK_MAX = 50](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.ts#L15-L16) en `OrderService`.
 
 ### Justificación — validación de creación (R1, R2)
 
-
-| Entrada         | Clase       | Borde             |
-| --------------- | ----------- | ----------------- |
-| `userId = ''`   | CE inválido | Cadena vacía      |
+| Entrada | Clase | Borde |
+|---------|-------|-------|
+| `userId = ''` | CE inválido | Cadena vacía |
 | `amount = null` | CE inválido | Ausencia de valor |
-| `amount = NaN`  | CE inválido | No numérico       |
-
+| `amount = NaN` | CE inválido | No numérico |
 
 ---
 
 ## Matriz de pruebas
 
+| Clase / VL | Entrada representativa | Resultado esperado | Prueba |
+|------------|------------------------|-------------------|--------|
+| CE válido + pago OK | user1, 100, APPROVED | `PAID` | [shouldCreateOrderWhenPaymentIsApproved](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L88) |
+| CE pago rechazado | DECLINED | `FAILED` | [shouldSetStatusFailedWhenPaymentIsDeclined](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L119) |
+| CE error red | axios reject | `FAILED` | [shouldSetStatusFailedWhenPaymentNetworkFails](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L130) |
+| CE userId inválido | `userId=''` | `BadRequestException` | [shouldRejectCreateWhenUserIdIsEmpty](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L168) |
+| CE amount nulo | `amount=null` | `BadRequestException` | [shouldRejectCreateWhenAmountIsNull](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L178) |
+| CE amount NaN | `amount=NaN` | `BadRequestException` | [shouldRejectCreateWhenAmountIsNaN](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L185) |
+| CE HTTP 5xx | status 500 | `FAILED` | [shouldSetStatusFailedWhenPaymentHttpReturns500](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L142) |
+| CE respuesta desconocida | `PENDING_REVIEW` | `FAILED` + error | [shouldSetStatusFailedWhenPaymentStatusIsUnknown](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L153) |
+| VL bulk bajo | count=0 | `BadRequestException` | [shouldRejectBulkWhenCountIsZero](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L345) |
+| VL bulk mín | count=1 | 1 orden | [shouldCreateBulkWhenCountIsOne](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L359) |
+| VL bulk máx | count=50 | 50 órdenes | [shouldCreateBulkWhenCountIsFifty](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L372) |
+| VL bulk alto | count=51 | `BadRequestException` | [shouldRejectBulkWhenCountIsFiftyOne](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L352) |
+| CE cancel OK | `PENDING` | `CANCELLED` | [shouldCancelOrderWhenStatusIsPending](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L265) |
+| CE cancel conflicto | `PAID` | `ConflictException` | [shouldRejectCancelWhenStatusIsNotPending](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L293) |
+| CE retry OK | `FAILED` → APPROVED | `PAID`, 2 intentos | [shouldRetryPaymentWhenStatusIsFailed](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L306) |
 
-| Clase / VL               | Entrada representativa | Resultado esperado    | Prueba (`order.service.spec.ts`)                  |
-| ------------------------ | ---------------------- | --------------------- | ------------------------------------------------- |
-| CE válido + pago OK      | user1, 100, APPROVED   | `PAID`                | `shouldCreateOrderWhenPaymentIsApproved`          |
-| CE pago rechazado        | DECLINED               | `FAILED`              | `shouldSetStatusFailedWhenPaymentIsDeclined`      |
-| CE error red             | axios reject           | `FAILED`              | `shouldSetStatusFailedWhenPaymentNetworkFails`    |
-| CE userId inválido       | `userId=''`            | `BadRequestException` | `shouldRejectCreateWhenUserIdIsEmpty`             |
-| CE amount nulo           | `amount=null`          | `BadRequestException` | `shouldRejectCreateWhenAmountIsNull`              |
-| CE amount NaN            | `amount=NaN`           | `BadRequestException` | `shouldRejectCreateWhenAmountIsNaN`               |
-| CE HTTP 5xx              | status 500             | `FAILED`              | `shouldSetStatusFailedWhenPaymentHttpReturns500`  |
-| CE respuesta desconocida | `PENDING_REVIEW`       | `FAILED` + error      | `shouldSetStatusFailedWhenPaymentStatusIsUnknown` |
-| VL bulk bajo             | count=0                | `BadRequestException` | `shouldRejectBulkWhenCountIsZero`                 |
-| VL bulk mín              | count=1                | 1 orden               | `shouldCreateBulkWhenCountIsOne`                  |
-| VL bulk máx              | count=50               | 50 órdenes            | `shouldCreateBulkWhenCountIsFifty`                |
-| VL bulk alto             | count=51               | `BadRequestException` | `shouldRejectBulkWhenCountIsFiftyOne`             |
-| CE cancel OK             | estado `PENDING`       | `CANCELLED`           | `shouldCancelOrderWhenStatusIsPending`            |
-| CE cancel conflicto      | estado `PAID`          | `ConflictException`   | `shouldRejectCancelWhenStatusIsNotPending`        |
-| CE retry OK              | `FAILED` → APPROVED    | `PAID`, 2 intentos    | `shouldRetryPaymentWhenStatusIsFailed`            |
-
-
-Más casos (refund, ledger, metadata, filtros): ver archivo de pruebas completo.
+Más casos: [order.service.spec.ts completo](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts) (refund, ledger, metadata, filtros).
 
 ### Trazabilidad reglas → pruebas
 
-
-| Regla   | Pruebas                                                                   |
-| ------- | ------------------------------------------------------------------------- |
-| R1      | `shouldRejectCreateWhenUserIdIsEmpty`                                     |
-| R2      | `shouldRejectCreateWhenAmountIsNull`, `shouldRejectCreateWhenAmountIsNaN` |
-| R3–R4   | `shouldCreateOrderWhenPaymentIsApproved`                                  |
-| R5–R8   | pruebas de pago fallido / error / 500 / desconocido                       |
-| R9–R10  | pruebas de `cancelOrder` y `retryPayment`                                 |
-| R11     | pruebas bulk 0, 1, 50, 51                                                 |
-| R12–R15 | refund, ledger, metadata, filtros                                         |
-
+| Regla | Pruebas |
+|-------|---------|
+| R1 | [shouldRejectCreateWhenUserIdIsEmpty](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L168) |
+| R2 | [amount null](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L178), [NaN](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L185) |
+| R3–R4 | [shouldCreateOrderWhenPaymentIsApproved](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L88) |
+| R5–R8 | [Declined](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L119), [Network](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L130), [500](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L142), [Unknown](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L153) |
+| R9–R10 | [cancel](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L265), [retry](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L306) |
+| R11 | [bulk 0/1/50/51](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L345) |
+| R12–R15 | [refund](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L386), [ledger](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L423), [metadata](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L450), [filtros](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L234) |
 
 ---
 
 ## BDD (Given – When – Then)
 
-
-| Prueba                                     | Escenario                                                                                                                 |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| `shouldCreateOrderWhenPaymentIsApproved`   | **Given** usuario y monto válidos y pagos aprueba, **When** se crea la orden, **Then** estado PAID y `paymentId` guardado |
-| `shouldRejectCreateWhenUserIdIsEmpty`      | **Given** monto sin userId, **When** se crea, **Then** error de validación                                                |
-| `shouldCancelOrderWhenStatusIsPending`     | **Given** orden pendiente, **When** se cancela, **Then** CANCELLED                                                        |
-| `shouldRejectCancelWhenStatusIsNotPending` | **Given** orden pagada, **When** se cancela, **Then** conflicto de estado                                                 |
-| `shouldRetryPaymentWhenStatusIsFailed`     | **Given** orden fallida, **When** se reintenta y aprueba, **Then** PAID e intentos incrementados                          |
-| `shouldRejectBulkWhenCountIsFiftyOne`      | **Given** bulk de 51, **When** se valida, **Then** rechazo por límite                                                     |
-
+| Prueba | Escenario |
+|--------|-----------|
+| [shouldCreateOrderWhenPaymentIsApproved](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L88) | **Given** usuario y monto válidos y pagos aprueba, **When** se crea la orden, **Then** estado PAID y `paymentId` guardado |
+| [shouldRejectCreateWhenUserIdIsEmpty](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L168) | **Given** monto sin userId, **When** se crea, **Then** error de validación |
+| [shouldCancelOrderWhenStatusIsPending](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L265) | **Given** orden pendiente, **When** se cancela, **Then** CANCELLED |
+| [shouldRejectCancelWhenStatusIsNotPending](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L293) | **Given** orden pagada, **When** se cancela, **Then** conflicto de estado |
+| [shouldRetryPaymentWhenStatusIsFailed](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L306) | **Given** orden fallida, **When** se reintenta y aprueba, **Then** PAID e intentos incrementados |
+| [shouldRejectBulkWhenCountIsFiftyOne](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L352) | **Given** bulk de 51, **When** se valida, **Then** rechazo por límite |
 
 ---
 
 ## Resultados — Cobertura
 
-### Comandos (equivalente a JaCoCo)
+### Comandos (equivalente a JaCoCo en Java)
 
 ```bash
+git clone https://github.com/llipiterdev/orders-ms.git
 cd orders-ms
+npm install
 npm test
 npm run test:cov
 ```
 
-Reporte HTML: `orders-ms/coverage/lcov-report/index.html`.
+Reporte local (no versionado): `coverage/lcov-report/index.html`.
 
-### Métricas actuales (`order.service.ts`)
+### Métricas actuales ([order.service.ts](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.ts))
 
-> Valores obtenidos con `npm run test:cov` (Jest/Istanbul). Si el código cambia, volver a ejecutar el comando y actualizar esta tabla.
+> Ejecutar `npm run test:cov` y actualizar si el código cambia.
 
 | Métrica | Valor |
 |---------|-------|
 | Líneas | **90,4 %** |
 | Statements | **89,84 %** |
 | Branches | **85,36 %** |
-| Umbral configurado | ≥ 80 % en `package.json` |
+| Umbral | ≥ 80 % en [package.json](https://github.com/llipiterdev/orders-ms/blob/main/package.json#L82-L87) |
 
-**Líneas sin cubrir (reporte Jest):** `50-58`, `119`, `138-139`, `226-231`, `264`
+**Líneas sin cubrir (Jest):** `50-58`, `119`, `138-139`, `226-231`, `264`
 
-### Líneas sin cubrir — qué es cada bloque
+### Líneas sin cubrir — enlaces al código
 
-| Líneas | Método / zona | Código (resumen) | Motivo |
-|--------|---------------|------------------|--------|
-| **50–58** | `scheduleExpiry` | Callback de `setTimeout`: busca la orden y marca `EXPIRED` | El timer no se dispara en unitarios (no se usa `jest.useFakeTimers()`). La línea 84 solo **registra** el timer; el cuerpo async (50–58) no se ejecuta. |
-| **119** | `executePaymentAttempt` | `validateStatus: () => true` en `axios.post` de pagos | Callback inline que Istanbul marca aparte; el flujo de pago **sí está probado** (APPROVED, DECLINED, 500, etc.). |
-| **138–139** | `executePaymentAttempt` | `PAYMENT_APPROVED_AFTER_EXPIRY` cuando `snapshotStatus === 'EXPIRED'` | Carrera pago aprobado vs orden ya expirada; depende del timer (50–58). |
-| **226–231** | `getOrderLedger` | `validateStatus: () => true` en los dos `axios.get` | Misma situación que 119: el ledger **sí se prueba** en `shouldReturnLedgerWhenOrderExists`; quedan sin marcar los callbacks de configuración HTTP. |
-| **264** | `requestRefund` | `validateStatus: () => true` en `axios.post` de refunds | Igual: `shouldIncrementRefundCountWhenRefundIsRequested` cubre el flujo; no la función inline del config. |
+| Líneas | Enlace | Motivo |
+|--------|--------|--------|
+| 50–58 | [scheduleExpiry — callback](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.ts#L50-L58) | Timer no ejecutado en unitarios |
+| 138–139 | [PAYMENT_APPROVED_AFTER_EXPIRY](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.ts#L138-L139) | Carrera con expiración |
+| 119, 226–231, 264 | [validateStatus en axios](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.ts#L119) | Callbacks inline; flujos sí probados |
 
 ### Evidencia de cobertura (capturas)
 
-#### 1. Resumen global — `coverage/lcov-report/index.html`
+#### 1. Resumen global
 
-Reporte Jest/Istanbul tras `npm run test:cov`. Cobertura sobre archivos medidos de `src/` (principalmente `order.service.ts`).
+<img src="https://raw.githubusercontent.com/llipiterdev/orders-ms/main/docs/img/image-1.png" alt="Resumen de cobertura global" width="720" />
 
-<img src="./img/image-1.png" alt="Resumen de cobertura global" width="720" />
+#### 2. Detalle de order.service.ts
 
-#### 2. Detalle de `order.service.ts` — líneas cubiertas y sin cubrir
+<img src="https://raw.githubusercontent.com/llipiterdev/orders-ms/main/docs/img/image-2.png" alt="Detalle cobertura — vista general" width="900" />
 
-Vista del informe HTML con código fuente coloreado (líneas ejecutadas vs no ejecutadas).
+<img src="https://raw.githubusercontent.com/llipiterdev/orders-ms/main/docs/img/image-3.png" alt="Detalle cobertura — zoom" width="720" />
 
-<img src="./img/image-2.png" alt="Detalle de cobertura order.service.ts — vista general" width="900" />
+#### 3. Ejecución npm test
 
-<img src="./img/image-3.png" alt="Detalle de cobertura order.service.ts — zoom" width="720" />
-
-#### 3. Ejecución de pruebas — `npm test`
-
-Salida de terminal: 31 pruebas pasando (`order.service.spec.ts`).
-
-<img src="./img/image-4.png" alt="Salida npm test — 31 tests passed" width="720" />
+<img src="https://raw.githubusercontent.com/llipiterdev/orders-ms/main/docs/img/image-4.png" alt="31 tests passed" width="720" />
 
 ---
 
 ## Gestión de defectos
 
-Archivo oficial: `[defectos.md](../defectos.md)` (Formato 1 narrativo + Formato 2 tabla).
+Archivo en el repo: [defectos.md](https://github.com/llipiterdev/orders-ms/blob/main/defectos.md)
 
-Resumen: defecto 01 abierto (userId con espacios); defecto 02 resuelto (validación HTTP 500).
+Resumen: defecto 01 abierto (userId con espacios); defecto 02 resuelto (HTTP 500).
 
 ---
 
@@ -269,38 +246,34 @@ Resumen: defecto 01 abierto (userId con espacios); defecto 02 resuelto (validaci
 
 ### Escenarios no cubiertos y por qué
 
-- **Expiración por timer** (`scheduleExpiry`): requiere simulación de tiempo; reservado para E2E o iteración avanzada.
-- **Carrera EXPIRED + APPROVED**: depende del timer y respuestas asíncronas tardías.
+- **Expiración por timer:** [scheduleExpiry](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.ts#L47-L63) — requiere `jest.useFakeTimers()` o E2E.
+- **Carrera EXPIRED + APPROVED:** [líneas 138–139](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.ts#L138-L139).
 
 ### Defectos detectados por las pruebas
 
-- Las pruebas **confirman** el manejo de HTTP 500 y estados de pago (defecto 02 cerrado).
-- El análisis de R1 **sugiere** un hueco con `userId` solo espacios (defecto 01 abierto); la prueba de regresión aún no está implementada.
+- Confirmación de HTTP 500: [shouldSetStatusFailedWhenPaymentHttpReturns500](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.spec.ts#L142).
+- Hueco documentado en [defecto 01](https://github.com/llipiterdev/orders-ms/blob/main/defectos.md) (userId solo espacios).
 
-### Cómo mejorar `OrderService` para facilitar pruebas
+### Cómo mejorar OrderService para facilitar pruebas
 
-1. Inyectar un cliente HTTP (`HttpService` de Nest) en lugar de `import axios` directo, para mockear vía DI.
-2. Extraer la política de expiración a un servicio o puerto inyectable, para probar sin `setTimeout` real.
-3. Aplicar `trim()` en validación de `userId` y cerrar el defecto 01 con su prueba.
+1. Inyectar `HttpService` en lugar de `import axios`.
+2. Extraer expiración a un servicio inyectable.
+3. Aplicar `trim()` en [assertCreatePayload](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.ts#L38-L45).
 
 ---
 
 ## Reglas de negocio (referencia)
 
-
-| ID      | Regla                               |
-| ------- | ----------------------------------- |
-| R1      | `userId` obligatorio                |
-| R2      | `amount` obligatorio y numérico     |
-| R3      | Crear → `PENDING` → pago automático |
-| R4      | `APPROVED` → `PAID`                 |
-| R5      | `DECLINED` → `FAILED`               |
-| R6      | Error red → `FAILED`                |
-| R7      | HTTP ≥ 500 → `FAILED`               |
-| R8      | Respuesta desconocida → `FAILED`    |
-| R9      | Cancelar solo `PENDING`             |
-| R10     | Reintentar solo `FAILED`            |
-| R11     | Bulk [1, 50]                        |
-| R12–R15 | Refund, ledger, metadata, filtros   |
-
-
+| ID | Regla | Implementación |
+|----|--------|----------------|
+| R1 | `userId` obligatorio | [assertCreatePayload](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.ts#L38-L45) |
+| R2 | `amount` obligatorio | idem |
+| R3 | Crear → pago automático | [createOrder](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.ts#L65-L89) |
+| R4–R8 | Estados de pago | [executePaymentAttempt](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.ts#L91-L167) |
+| R9 | Cancelar solo `PENDING` | [cancelOrder](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.ts#L177-L188) |
+| R10 | Reintentar solo `FAILED` | [retryPayment](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.ts#L190-L200) |
+| R11 | Bulk [1, 50] | [bulkCreate](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.ts#L277-L298) |
+| R12 | Refund | [requestRefund](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.ts#L248-L275) |
+| R13 | Ledger | [getOrderLedger](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.ts#L212-L246) |
+| R14 | Metadata | [patchOrderMetadata](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.ts#L300-L311) |
+| R15 | Filtros | [getOrdersFiltered](https://github.com/llipiterdev/orders-ms/blob/main/src/orders/order.service.ts#L202-L210) |
