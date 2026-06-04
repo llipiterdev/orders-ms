@@ -12,6 +12,9 @@ import { Order, OrderStatus } from './order.interface';
 
 @Injectable()
 export class OrderService {
+  private static readonly BULK_MIN = 1;
+  private static readonly BULK_MAX = 50;
+
   private readonly logger = new Logger(OrderService.name);
   private readonly expiryTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -277,8 +280,14 @@ export class OrderService {
     amount: number,
     currency = 'USD',
   ): Promise<{ requested: number; received: number; orders: OrderEntity[] }> {
-    if (!Number.isFinite(count) || count < 1 || count > 50) {
-      throw new BadRequestException('count must be between 1 and 50');
+    if (
+      !Number.isFinite(count) ||
+      count < OrderService.BULK_MIN ||
+      count > OrderService.BULK_MAX
+    ) {
+      throw new BadRequestException(
+        `count must be between ${OrderService.BULK_MIN} and ${OrderService.BULK_MAX}`,
+      );
     }
     this.assertCreatePayload(userId, amount);
     const out: OrderEntity[] = [];

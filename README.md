@@ -56,11 +56,14 @@ Las pruebas **no requieren Postgres**: los unitarios usan mocks de repositorios;
 
 ```bash
 npm run test
+npm run test:cov
 npm run test:e2e
 
 # Pruebas de mutación con Stryker
 npx stryker run
 ```
+
+Documentación del taller para el **Wiki de GitHub**: [`docs/wiki-taller-testing.md`](docs/wiki-taller-testing.md). Registro de defectos: [`defectos.md`](defectos.md). Integrantes: [`integrantes.txt`](integrantes.txt).
 
 ## Comunicación con Payments MS
 
